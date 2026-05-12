@@ -1,12 +1,15 @@
 #include <iostream>
-#include "../include/Graph.h"
-#include "../include/Queue.h"
 #include <cstdlib>
 #include <ctime>
+#include <climits>
+
+#include "../include/Graph.h"
+#include "../include/Queue.h"
+#include "../include/PriorityQueue.h"
+
 using namespace std;
 
 Graph::Graph(int rows, int columns) {
-
     this->rows = rows;
     this->columns = columns;
 
@@ -15,31 +18,28 @@ Graph::Graph(int rows, int columns) {
     adjacencyMatrix = new int*[totalNodes];
 
     for (int i = 0; i < totalNodes; i++) {
-
         adjacencyMatrix[i] = new int[totalNodes];
 
         for (int j = 0; j < totalNodes; j++) {
-
             adjacencyMatrix[i][j] = 0;
         }
     }
+
     mapGrid = new int*[rows];
 
     for (int i = 0; i < rows; i++) {
         mapGrid[i] = new int[columns];
 
         for (int j = 0; j < columns; j++) {
-        mapGrid[i][j] = 0;
+            mapGrid[i][j] = 0;
         }
     }
+
+    srand(time(0));
 }
 
-
-
 Graph::~Graph() {
-
     for (int i = 0; i < totalNodes; i++) {
-
         delete[] adjacencyMatrix[i];
     }
 
@@ -53,60 +53,165 @@ Graph::~Graph() {
 }
 
 int Graph::getIndex(int row, int column) {
-
     return row * columns + column;
 }
 
+int Graph::getRow(int node) {
+    return node / columns;
+}
+
+int Graph::getColumn(int node) {
+    return node % columns;
+}
+
+void Graph::clearAdjacencyMatrix() {
+    for (int i = 0; i < totalNodes; i++) {
+        for (int j = 0; j < totalNodes; j++) {
+            adjacencyMatrix[i][j] = 0;
+        }
+    }
+}
+
+void Graph::connectNodes(int firstNode, int secondNode) {
+    adjacencyMatrix[firstNode][secondNode] = 1;
+    adjacencyMatrix[secondNode][firstNode] = 1;
+}
+
 void Graph::buildGraph() {
+    clearAdjacencyMatrix();
 
     for (int row = 0; row < rows; row++) {
-
         for (int column = 0; column < columns; column++) {
+
+            if (mapGrid[row][column] == 1) {
+                continue;
+            }
 
             int currentNode = getIndex(row, column);
 
-            // UP
-            if (row > 0) {
-
+            if (row > 0 && mapGrid[row - 1][column] == 0) {
                 int up = getIndex(row - 1, column);
-
-                adjacencyMatrix[currentNode][up] = 1;
+                connectNodes(currentNode, up);
             }
 
-            // DOWN
-            if (row < rows - 1) {
-
+            if (row < rows - 1 && mapGrid[row + 1][column] == 0) {
                 int down = getIndex(row + 1, column);
-
-                adjacencyMatrix[currentNode][down] = 1;
+                connectNodes(currentNode, down);
             }
 
-            // LEFT
-            if (column > 0) {
-
+            if (column > 0 && mapGrid[row][column - 1] == 0) {
                 int left = getIndex(row, column - 1);
-
-                adjacencyMatrix[currentNode][left] = 1;
+                connectNodes(currentNode, left);
             }
 
-            // RIGHT
-            if (column < columns - 1) {
-
+            if (column < columns - 1 && mapGrid[row][column + 1] == 0) {
                 int right = getIndex(row, column + 1);
-
-                adjacencyMatrix[currentNode][right] = 1;
+                connectNodes(currentNode, right);
             }
         }
     }
 }
 
-void Graph::bfs(int startNode, int endNode) {
+void Graph::generateObstacles(int amount) {
+    for (int row = 0; row < rows; row++) {
+        for (int column = 0; column < columns; column++) {
+            mapGrid[row][column] = 0;
+        }
+    }
+
+    int created = 0;
+    int attempts = 0;
+    int maxAttempts = amount * 100;
+
+    while (created < amount && attempts < maxAttempts) {
+        attempts++;
+
+        int row = rand() % rows;
+        int column = rand() % columns;
+
+        int node = getIndex(row, column);
+
+        if (node == 0 || node == totalNodes - 1) {
+            continue;
+        }
+
+        if (mapGrid[row][column] == 0) {
+            mapGrid[row][column] = 1;
+
+            buildGraph();
+
+            if (isConnected()) {
+                created++;
+            }
+            else {
+                mapGrid[row][column] = 0;
+                buildGraph();
+            }
+        }
+    }
+
+    buildGraph();
+}
+
+bool Graph::isConnected() {
+    bool* visited = new bool[totalNodes];
+
+    for (int i = 0; i < totalNodes; i++) {
+        visited[i] = false;
+    }
+
+    int startNode = -1;
+    int freeNodes = 0;
+
+    for (int row = 0; row < rows; row++) {
+        for (int column = 0; column < columns; column++) {
+            if (mapGrid[row][column] == 0) {
+                int node = getIndex(row, column);
+                freeNodes++;
+
+                if (startNode == -1) {
+                    startNode = node;
+                }
+            }
+        }
+    }
+
+    if (startNode == -1) {
+        delete[] visited;
+        return false;
+    }
+
+    Queue queue(totalNodes);
+    queue.enqueue(startNode);
+    visited[startNode] = true;
+
+    int visitedCount = 0;
+
+    while (!queue.isEmpty()) {
+        int currentNode = queue.dequeue();
+        visitedCount++;
+
+        for (int neighbor = 0; neighbor < totalNodes; neighbor++) {
+            if (adjacencyMatrix[currentNode][neighbor] == 1 && !visited[neighbor]) {
+                visited[neighbor] = true;
+                queue.enqueue(neighbor);
+            }
+        }
+    }
+
+    delete[] visited;
+
+    return visitedCount == freeNodes;
+}
+
+bool Graph::bfs(int startNode, int endNode, int*& path, int& pathSize) {
+    path = nullptr;
+    pathSize = 0;
 
     bool* visited = new bool[totalNodes];
     int* previous = new int[totalNodes];
 
     for (int i = 0; i < totalNodes; i++) {
-
         visited[i] = false;
         previous[i] = -1;
     }
@@ -114,11 +219,9 @@ void Graph::bfs(int startNode, int endNode) {
     Queue queue(totalNodes);
 
     visited[startNode] = true;
-
     queue.enqueue(startNode);
 
     while (!queue.isEmpty()) {
-
         int currentNode = queue.dequeue();
 
         if (currentNode == endNode) {
@@ -126,94 +229,164 @@ void Graph::bfs(int startNode, int endNode) {
         }
 
         for (int neighbor = 0; neighbor < totalNodes; neighbor++) {
-
-            if (adjacencyMatrix[currentNode][neighbor] == 1 &&
-                !visited[neighbor]) {
-
+            if (adjacencyMatrix[currentNode][neighbor] == 1 && !visited[neighbor]) {
                 visited[neighbor] = true;
-
                 previous[neighbor] = currentNode;
-
                 queue.enqueue(neighbor);
             }
         }
     }
 
     if (!visited[endNode]) {
-
-        cout << "No path found.\n";
+        delete[] visited;
+        delete[] previous;
+        return false;
     }
-    else {
 
-        cout << "Path found with BFS: ";
+    path = new int[totalNodes];
 
-        int* path = new int[totalNodes];
+    int current = endNode;
 
-        int pathSize = 0;
+    while (current != -1) {
+        path[pathSize] = current;
+        pathSize++;
+        current = previous[current];
+    }
 
-        int current = endNode;
-
-        while (current != -1) {
-
-            path[pathSize] = current;
-
-            pathSize++;
-
-            current = previous[current];
-        }
-
-        for (int i = pathSize - 1; i >= 0; i--) {
-
-            cout << path[i];
-
-            if (i > 0) {
-                cout << " -> ";
-            }
-        }
-
-        cout << endl;
-
-        delete[] path;
+    for (int i = 0; i < pathSize / 2; i++) {
+        int temp = path[i];
+        path[i] = path[pathSize - 1 - i];
+        path[pathSize - 1 - i] = temp;
     }
 
     delete[] visited;
     delete[] previous;
+
+    return true;
 }
-void Graph::generateObstacles(int amount) {
 
-    srand(time(0));
+bool Graph::dijkstra(int startNode, int endNode, int*& path, int& pathSize) {
+    path = nullptr;
+    pathSize = 0;
 
-    int created = 0;
+    int* distance = new int[totalNodes];
+    int* previous = new int[totalNodes];
+    bool* visited = new bool[totalNodes];
 
-    while (created < amount) {
+    for (int i = 0; i < totalNodes; i++) {
+        distance[i] = INT_MAX;
+        previous[i] = -1;
+        visited[i] = false;
+    }
 
-        int row = rand() % rows;
-        int column = rand() % columns;
+    PriorityQueue priorityQueue(totalNodes * totalNodes);
 
-        if (mapGrid[row][column] == 0) {
+    distance[startNode] = 0;
+    priorityQueue.push(startNode, 0);
 
-            mapGrid[row][column] = 1;
+    while (!priorityQueue.isEmpty()) {
+        PriorityNode current = priorityQueue.pop();
+        int currentNode = current.node;
 
-            int obstacleNode = getIndex(row, column);
+        if (visited[currentNode]) {
+            continue;
+        }
 
-            for (int i = 0; i < totalNodes; i++) {
-                adjacencyMatrix[obstacleNode][i] = 0;
-                adjacencyMatrix[i][obstacleNode] = 0;
+        visited[currentNode] = true;
+
+        if (currentNode == endNode) {
+            break;
+        }
+
+        for (int neighbor = 0; neighbor < totalNodes; neighbor++) {
+            if (adjacencyMatrix[currentNode][neighbor] == 1 && !visited[neighbor]) {
+                int newDistance = distance[currentNode] + adjacencyMatrix[currentNode][neighbor];
+
+                if (newDistance < distance[neighbor]) {
+                    distance[neighbor] = newDistance;
+                    previous[neighbor] = currentNode;
+                    priorityQueue.push(neighbor, newDistance);
+                }
             }
-
-            created++;
         }
     }
+
+    if (distance[endNode] == INT_MAX) {
+        delete[] distance;
+        delete[] previous;
+        delete[] visited;
+        return false;
+    }
+
+    path = new int[totalNodes];
+
+    int current = endNode;
+
+    while (current != -1) {
+        path[pathSize] = current;
+        pathSize++;
+        current = previous[current];
+    }
+
+    for (int i = 0; i < pathSize / 2; i++) {
+        int temp = path[i];
+        path[i] = path[pathSize - 1 - i];
+        path[pathSize - 1 - i] = temp;
+    }
+
+    delete[] distance;
+    delete[] previous;
+    delete[] visited;
+
+    return true;
 }
 
-void Graph::printMap() {
+int Graph::getRandomReachableNode(int startNode, int radius) {
+    int startRow = getRow(startNode);
+    int startColumn = getColumn(startNode);
 
+    int possibleNodesCount = 0;
+    int* possibleNodes = new int[totalNodes];
+
+    for (int row = startRow - radius; row <= startRow + radius; row++) {
+        for (int column = startColumn - radius; column <= startColumn + radius; column++) {
+
+            if (row >= 0 && row < rows && column >= 0 && column < columns) {
+
+                if (mapGrid[row][column] == 0) {
+                    int node = getIndex(row, column);
+
+                    int* path = nullptr;
+                    int pathSize = 0;
+
+                    if (bfs(startNode, node, path, pathSize)) {
+                        possibleNodes[possibleNodesCount] = node;
+                        possibleNodesCount++;
+                        delete[] path;
+                    }
+                }
+            }
+        }
+    }
+
+    if (possibleNodesCount == 0) {
+        delete[] possibleNodes;
+        return startNode;
+    }
+
+    int randomIndex = rand() % possibleNodesCount;
+    int selectedNode = possibleNodes[randomIndex];
+
+    delete[] possibleNodes;
+
+    return selectedNode;
+}
+//Dibujar el mapa y el camino encontrado en la terminal
+void Graph::printMap() {
     cout << "\nMAP\n\n";
 
     for (int row = 0; row < rows; row++) {
-
         for (int column = 0; column < columns; column++) {
-
             if (mapGrid[row][column] == 1) {
                 cout << "X ";
             }
@@ -224,4 +397,16 @@ void Graph::printMap() {
 
         cout << endl;
     }
+}
+
+void Graph::printPath(int* path, int pathSize) {
+    for (int i = 0; i < pathSize; i++) {
+        cout << path[i];
+
+        if (i < pathSize - 1) {
+            cout << " -> ";
+        }
+    }
+
+    cout << endl;
 }

@@ -1,4 +1,3 @@
-// include/Queue.h
 #ifndef QUEUE_H
 #define QUEUE_H
 
@@ -15,10 +14,10 @@ public:
     ~Queue();
 
     void enqueue(int value);
-
     int dequeue();
 
     bool isEmpty();
+    bool isFull();
 };
 
 #endif
