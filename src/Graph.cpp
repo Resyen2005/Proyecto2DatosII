@@ -410,3 +410,19 @@ void Graph::printPath(int* path, int pathSize) {
 
     cout << endl;
 }
+
+// --- FUNCIONES PARA LA INTERFAZ GRÁFICA ---
+bool Graph::isObstacle(int row, int column) {
+    if (row < 0 || row >= rows || column < 0 || column >= columns) {
+        return true; // Si sale de los límites, tratarlo como obstáculo (pared)
+    }
+    return mapGrid[row][column] == 1; // 1 significa obstáculo en tu código
+}
+
+int Graph::getRows() {
+    return rows;
+}
+
+int Graph::getColumns() {
+    return columns;
+}

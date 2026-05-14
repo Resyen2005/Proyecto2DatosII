@@ -33,6 +33,12 @@ public:
 
     void printMap();
     void printPath(int* path, int pathSize);
+
+    // --- FUNCIONES PARA LA INTERFAZ GRÁFICA ---
+    bool isObstacle(int row, int column);
+    int getRows();
+    int getColumns();
+
 };
 
 #endif
